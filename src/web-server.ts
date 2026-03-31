@@ -216,7 +216,7 @@ app.get('/', (req: Request, res: Response) => {
     const errorDiv = document.getElementById('error');
     const searchBtn = document.getElementById('searchBtn');
 
-    form.addEventListener('submit', async (e) => {
+    form.addEventListener('submit', (e) => {
       e.preventDefault();
 
       const formData = new FormData(form);
@@ -230,25 +230,7 @@ app.get('/', (req: Request, res: Response) => {
       errorDiv.classList.remove('active');
       searchBtn.disabled = true;
 
-      try {
-        const response = await fetch('/api/search?' + params.toString());
-
-        if (!response.ok) {
-          const error = await response.json();
-          throw new Error(error.error || '検索に失敗しました');
-        }
-
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        window.location.href = url;
-
-      } catch (error) {
-        errorDiv.textContent = '❌ ' + error.message;
-        errorDiv.classList.add('active');
-      } finally {
-        loading.classList.remove('active');
-        searchBtn.disabled = false;
-      }
+      window.location.href = '/api/search?' + params.toString();
     });
   </script>
 </body>
