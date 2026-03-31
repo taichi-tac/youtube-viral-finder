@@ -1,0 +1,92 @@
+/**
+ * バイラル動画の情報
+ */
+export interface ViralVideo {
+  // 動画情報
+  videoUrl: string;
+  videoId: string;
+  title: string;
+  thumbnailUrl: string;
+  publishedAt: string;
+  duration: string;
+  viewCount: number;
+  likeCount: number;
+  commentCount: number;
+
+  // チャンネル情報
+  channelName: string;
+  channelUrl: string;
+  channelId: string;
+  subscriberCount: number;
+  channelCreatedAt: string;
+  totalVideoCount: number;
+
+  // 分析指標
+  viewsToSubscribersRatio: number; // 登録者数の何倍の再生数か
+  likeRate: number; // 高評価率 (高評価数 / 再生数)
+  commentRate: number; // コメント率 (コメント数 / 再生数)
+  engagementRate: number; // エンゲージメント率 ((高評価+コメント) / 再生数)
+}
+
+/**
+ * 検索条件
+ */
+export interface SearchOptions {
+  keyword: string;
+  publishedAfter?: string; // ISO 8601 形式
+  publishedBefore?: string; // ISO 8601 形式
+  maxResults?: number;
+  viralThreshold?: number; // デフォルト3倍
+  videoDuration?: 'any' | 'short' | 'medium' | 'long'; // any:全て, short:4分未満, medium:4-20分, long:20分以上
+}
+
+/**
+ * YouTube API レスポンス型
+ */
+export interface YouTubeSearchResponse {
+  items: Array<{
+    id: {
+      videoId: string;
+    };
+    snippet: {
+      title: string;
+      channelId: string;
+      channelTitle: string;
+      publishedAt: string;
+      thumbnails: {
+        high: {
+          url: string;
+        };
+      };
+    };
+  }>;
+  nextPageToken?: string;
+}
+
+export interface YouTubeVideoResponse {
+  items: Array<{
+    id: string;
+    statistics: {
+      viewCount: string;
+      likeCount: string;
+      commentCount: string;
+    };
+    contentDetails: {
+      duration: string;
+    };
+  }>;
+}
+
+export interface YouTubeChannelResponse {
+  items: Array<{
+    id: string;
+    snippet: {
+      title: string;
+      publishedAt: string;
+    };
+    statistics: {
+      subscriberCount: string;
+      videoCount: string;
+    };
+  }>;
+}

@@ -1,0 +1,94 @@
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  YouTube Viral Finder - 使い方
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+【このツールについて】
+チャンネル登録者数の3倍以上の再生数を持つ「バイラル動画」を
+自動で発見するツールです。
+
+【出力される情報】
+✅ 動画URL、サムネイル、タイトル
+✅ チャンネル名、チャンネルURL
+✅ 再生数、登録者数、登録者の何倍の再生数か
+✅ 総動画数、公開日、チャンネル開設日
+✅ 動画の長さ、高評価数、高評価率
+✅ コメント数、コメント率、エンゲージメント率
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+【セットアップ（初回のみ）】
+
+1. YouTube API キーを取得
+   https://console.cloud.google.com/
+
+2. .envファイルを作成して設定
+   cp .env.example .env
+   # エディタで開いて YOUTUBE_API_KEY=あなたのキー を設定
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+【基本的な使い方】
+
+# キーワードで検索
+npm run dev -- search -k "料理"
+
+# 期間を指定
+npm run dev -- search -k "プログラミング" -a 2024-01-01 -b 2024-12-31
+
+# 倍率を変更（5倍以上の動画のみ）
+npm run dev -- search -k "ゲーム" -t 5
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+【出力形式】
+
+# テーブル表示（デフォルト）
+npm run dev -- search -k "料理"
+
+# 詳細表示
+npm run dev -- search -k "料理" -o detailed
+
+# CSV出力（Excelで開ける）
+npm run dev -- search -k "料理" -o csv -f results.csv
+
+# JSON出力
+npm run dev -- search -k "料理" -o json -f results.json
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+【オプション一覧】
+
+-k, --keyword      検索キーワード（必須）
+-a, --after        開始日 (YYYY-MM-DD)
+-b, --before       終了日 (YYYY-MM-DD)
+-m, --max          最大検索数（デフォルト: 50）
+-t, --threshold    倍率閾値（デフォルト: 3）
+-o, --output       出力形式 (table/detailed/csv/json)
+-f, --file         保存ファイル名
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+【活用例】
+
+# 自分のジャンルでバイラル動画を探す
+npm run dev -- search -k "Vlog" -m 100 -o csv -f viral_vlogs.csv
+
+# 最近のトレンドを調査
+npm run dev -- search -k "AI" -a 2024-12-01 -o detailed
+
+# 競合分析
+npm run dev -- search -k "あなたのジャンル" -t 5 -o json -f analysis.json
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+【ヘルプ】
+
+# 全コマンド表示
+npm run dev -- --help
+
+# 使用例表示
+npm run dev -- examples
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+詳細はREADME.mdとQUICK_START.mdを参照してください。
