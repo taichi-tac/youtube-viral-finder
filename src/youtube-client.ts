@@ -37,7 +37,7 @@ export class YouTubeClient {
 
     const viralVideos: ViralVideo[] = [];
     const seenVideoIds = new Set<string>();
-    const MAX_API_PAGES = 20; // APIクォータ保護: 最大ページ数
+    const MAX_API_PAGES = 8; // APIクォータ保護: 最大8ページ(=800ユニット)
 
     console.log(`\n🔍 検索中: "${keyword}"`);
     if (publishedAfter || publishedBefore) {
@@ -73,7 +73,15 @@ export class YouTubeClient {
           searchParams.videoDuration = videoDuration;
         }
 
-        const searchResponse = await this.youtube.search.list(searchParams);
+        let searchResponse;
+        try {
+          searchResponse = await this.youtube.search.list(searchParams);
+        } catch (error: any) {
+          console.error(`⚠️ API呼び出しエラー (${totalApiPages}ページ目):`, error?.message);
+          // クォータエラー等でも、ここまでの結果を返す
+          viralVideos.sort((a, b) => b.viewsToSubscribersRatio - a.viewsToSubscribersRatio);
+          return viralVideos;
+        }
         totalApiPages++;
 
         const videos = searchResponse.data.items || [];
@@ -87,11 +95,17 @@ export class YouTubeClient {
         for (const id of videoIds) seenVideoIds.add(id);
 
         if (videoIds.length > 0) {
-          const batchResults = await this.getVideoDetailsBatch(videoIds, viralThreshold);
-          for (const viralVideo of batchResults) {
-            viralVideos.push(viralVideo);
-            console.log(`✅ [${viralVideos.length}/${maxResults}] ${viralVideo.title.substring(0, 50)}... (${viralVideo.viewsToSubscribersRatio.toFixed(1)}倍)`);
-            if (viralVideos.length >= maxResults) break;
+          try {
+            const batchResults = await this.getVideoDetailsBatch(videoIds, viralThreshold);
+            for (const viralVideo of batchResults) {
+              viralVideos.push(viralVideo);
+              console.log(`✅ [${viralVideos.length}/${maxResults}] ${viralVideo.title.substring(0, 50)}... (${viralVideo.viewsToSubscribersRatio.toFixed(1)}倍)`);
+              if (viralVideos.length >= maxResults) break;
+            }
+          } catch (error: any) {
+            console.error(`⚠️ 詳細取得エラー:`, error?.message);
+            viralVideos.sort((a, b) => b.viewsToSubscribersRatio - a.viewsToSubscribersRatio);
+            return viralVideos;
           }
         }
 

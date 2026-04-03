@@ -285,11 +285,23 @@ app.get('/api/search', async (req: Request, res: Response) => {
     res.setHeader('Content-Type', 'text/html; charset=utf-8');
     res.send(html);
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('検索エラー:', error);
-    res.status(500).json({
-      error: error instanceof Error ? error.message : '検索中にエラーが発生しました'
-    });
+    const message = error?.message || '';
+    if (message.includes('quota')) {
+      res.status(429).send(`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>APIクォータ超過</title>
+        <style>body{font-family:sans-serif;background:#f8d7da;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;}
+        .card{background:white;padding:40px;border-radius:15px;max-width:500px;text-align:center;box-shadow:0 5px 20px rgba(0,0,0,0.1);}
+        h1{color:#c00;} a{color:#667eea;}</style></head>
+        <body><div class="card"><h1>⚠️ API制限に達しました</h1>
+        <p>YouTube APIの1日の利用上限を超えました。</p>
+        <p>日本時間 <strong>午後4時</strong> 以降にリセットされます。</p>
+        <p style="margin-top:20px;"><a href="/">← トップに戻る</a></p></div></body></html>`);
+    } else {
+      res.status(500).json({
+        error: message || '検索中にエラーが発生しました'
+      });
+    }
   }
 });
 
