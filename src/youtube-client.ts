@@ -68,28 +68,21 @@ export class YouTubeClient {
       const videos = searchResponse.data.items || [];
       if (videos.length === 0) break;
 
-      // 各動画の詳細情報を取得
-      for (const video of videos) {
-        if (!video.id?.videoId) continue;
+      // 動画IDを一括収集
+      const videoIds = videos
+        .map(v => v.id?.videoId)
+        .filter((id): id is string => !!id);
 
-        try {
-          const viralVideo = await this.getVideoDetails(
-            video.id.videoId,
-            viralThreshold
-          );
+      if (videoIds.length === 0) break;
 
-          if (viralVideo) {
-            viralVideos.push(viralVideo);
-            console.log(`✅ 発見: ${viralVideo.title.substring(0, 50)}... (${viralVideo.viewsToSubscribersRatio.toFixed(1)}倍)`);
-          }
-
-          processedCount++;
-          if (processedCount >= maxResults) break;
-        } catch (error) {
-          console.error(`❌ エラー: 動画ID ${video.id.videoId}`, error);
-        }
+      // バッチで動画詳細を取得
+      const batchResults = await this.getVideoDetailsBatch(videoIds, viralThreshold);
+      for (const viralVideo of batchResults) {
+        viralVideos.push(viralVideo);
+        console.log(`✅ 発見: ${viralVideo.title.substring(0, 50)}... (${viralVideo.viewsToSubscribersRatio.toFixed(1)}倍)`);
       }
 
+      processedCount += videoIds.length;
       pageToken = searchResponse.data.nextPageToken || undefined;
       if (!pageToken) break;
 
@@ -101,80 +94,88 @@ export class YouTubeClient {
   }
 
   /**
-   * 動画の詳細情報を取得し、バイラル条件をチェック
+   * 動画の詳細情報をバッチ取得し、バイラル条件をチェック
    */
-  private async getVideoDetails(
-    videoId: string,
+  private async getVideoDetailsBatch(
+    videoIds: string[],
     viralThreshold: number
-  ): Promise<ViralVideo | null> {
-    // 動画情報を取得
+  ): Promise<ViralVideo[]> {
+    // 動画情報を一括取得（最大50件）
     const videoResponse = await this.youtube.videos.list({
       part: ['snippet', 'statistics', 'contentDetails'],
-      id: [videoId],
+      id: videoIds,
     });
 
-    const video = videoResponse.data.items?.[0];
-    if (!video || !video.snippet || !video.statistics) {
-      return null;
-    }
+    const videoItems = videoResponse.data.items || [];
+    if (videoItems.length === 0) return [];
 
-    const viewCount = parseInt(video.statistics.viewCount || '0');
-    const likeCount = parseInt(video.statistics.likeCount || '0');
-    const commentCount = parseInt(video.statistics.commentCount || '0');
+    // チャンネルIDを一括収集（重複排除）
+    const channelIds = [...new Set(
+      videoItems
+        .map(v => v.snippet?.channelId)
+        .filter((id): id is string => !!id)
+    )];
 
-    // チャンネル情報を取得
+    // チャンネル情報を一括取得（最大50件）
     const channelResponse = await this.youtube.channels.list({
       part: ['snippet', 'statistics'],
-      id: [video.snippet.channelId!],
+      id: channelIds,
     });
 
-    const channel = channelResponse.data.items?.[0];
-    if (!channel || !channel.statistics) {
-      return null;
-    }
-
-    const subscriberCount = parseInt(channel.statistics.subscriberCount || '0');
-    const totalVideoCount = parseInt(channel.statistics.videoCount || '0');
+    const channelMap = new Map(
+      (channelResponse.data.items || []).map(ch => [ch.id, ch])
+    );
 
     // バイラル判定
-    const viewsToSubscribersRatio = subscriberCount > 0
-      ? viewCount / subscriberCount
-      : 0;
+    const results: ViralVideo[] = [];
+    for (const video of videoItems) {
+      if (!video.snippet || !video.statistics || !video.id) continue;
 
-    if (viewsToSubscribersRatio < viralThreshold) {
-      return null;
+      const channel = channelMap.get(video.snippet.channelId!);
+      if (!channel || !channel.statistics) continue;
+
+      const viewCount = parseInt(video.statistics.viewCount || '0');
+      const likeCount = parseInt(video.statistics.likeCount || '0');
+      const commentCount = parseInt(video.statistics.commentCount || '0');
+      const subscriberCount = parseInt(channel.statistics.subscriberCount || '0');
+      const totalVideoCount = parseInt(channel.statistics.videoCount || '0');
+
+      const viewsToSubscribersRatio = subscriberCount > 0
+        ? viewCount / subscriberCount
+        : 0;
+
+      if (viewsToSubscribersRatio < viralThreshold) continue;
+
+      const likeRate = viewCount > 0 ? likeCount / viewCount : 0;
+      const commentRate = viewCount > 0 ? commentCount / viewCount : 0;
+      const engagementRate = viewCount > 0
+        ? (likeCount + commentCount) / viewCount
+        : 0;
+
+      results.push({
+        videoUrl: `https://www.youtube.com/watch?v=${video.id}`,
+        videoId: video.id as string,
+        title: video.snippet.title || '',
+        thumbnailUrl: video.snippet.thumbnails?.high?.url || '',
+        publishedAt: video.snippet.publishedAt || '',
+        duration: this.parseDuration(video.contentDetails?.duration || ''),
+        viewCount,
+        likeCount,
+        commentCount,
+        channelName: channel.snippet?.title || '',
+        channelUrl: `https://www.youtube.com/channel/${channel.id}`,
+        channelId: channel.id || '',
+        subscriberCount,
+        channelCreatedAt: channel.snippet?.publishedAt || '',
+        totalVideoCount,
+        viewsToSubscribersRatio,
+        likeRate,
+        commentRate,
+        engagementRate,
+      });
     }
 
-    // 各種レート計算
-    const likeRate = viewCount > 0 ? likeCount / viewCount : 0;
-    const commentRate = viewCount > 0 ? commentCount / viewCount : 0;
-    const engagementRate = viewCount > 0
-      ? (likeCount + commentCount) / viewCount
-      : 0;
-
-    return {
-      videoUrl: `https://www.youtube.com/watch?v=${videoId}`,
-      videoId,
-      title: video.snippet.title || '',
-      thumbnailUrl: video.snippet.thumbnails?.high?.url || '',
-      publishedAt: video.snippet.publishedAt || '',
-      duration: this.parseDuration(video.contentDetails?.duration || ''),
-      viewCount,
-      likeCount,
-      commentCount,
-
-      channelName: channel.snippet?.title || '',
-      channelUrl: `https://www.youtube.com/channel/${channel.id}`,
-      channelId: channel.id || '',
-      subscriberCount,
-      channelCreatedAt: channel.snippet?.publishedAt || '',
-      totalVideoCount,
-
-      viewsToSubscribersRatio,
-      likeRate,
-      commentRate,
-      engagementRate,
-    };
+    return results;
   }
 
   /**

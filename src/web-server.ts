@@ -193,8 +193,8 @@ app.get('/', (req: Request, res: Response) => {
 
           <div class="form-group">
             <label for="maxResults">最大検索数</label>
-            <input type="number" id="maxResults" name="maxResults" value="50" min="1" max="200">
-            <div class="hint">最大: 200</div>
+            <input type="number" id="maxResults" name="maxResults" value="200" min="1" max="500">
+            <div class="hint">最大: 500</div>
           </div>
         </div>
 
