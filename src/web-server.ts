@@ -192,9 +192,9 @@ app.get('/', (req: Request, res: Response) => {
           </div>
 
           <div class="form-group">
-            <label for="maxResults">最大検索数</label>
+            <label for="maxResults">最大結果数</label>
             <input type="number" id="maxResults" name="maxResults" value="200" min="1" max="500">
-            <div class="hint">最大: 500</div>
+            <div class="hint">バイラル動画がこの件数見つかるまで検索</div>
           </div>
         </div>
 

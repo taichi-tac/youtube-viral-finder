@@ -37,24 +37,27 @@ export class YouTubeClient {
 
     const viralVideos: ViralVideo[] = [];
     const seenVideoIds = new Set<string>();
+    const MAX_API_PAGES = 20; // APIクォータ保護: 最大ページ数
 
     console.log(`\n🔍 検索中: "${keyword}"`);
     if (publishedAfter || publishedBefore) {
       console.log(`📅 期間: ${publishedAfter || '開始'} 〜 ${publishedBefore || '現在'}`);
     }
-    console.log(`🎯 条件: 登録者数の${viralThreshold}倍以上の再生数\n`);
+    console.log(`🎯 条件: 登録者数の${viralThreshold}倍以上の再生数`);
+    console.log(`📊 目標: バイラル動画 ${maxResults}件\n`);
 
     // 複数のソート順で検索して多様な動画を収集
     const searchOrders = ['viewCount', 'relevance', 'date', 'rating'];
-    const perOrder = Math.ceil(maxResults / searchOrders.length);
+    let totalApiPages = 0;
 
     for (const order of searchOrders) {
+      if (viralVideos.length >= maxResults) break;
+
       let pageToken: string | undefined;
-      let processedCount = 0;
 
-      console.log(`📋 ソート順: ${order} で検索中...`);
+      console.log(`📋 ソート順: ${order} で検索中... (現在 ${viralVideos.length}/${maxResults}件)`);
 
-      while (processedCount < perOrder) {
+      while (viralVideos.length < maxResults && totalApiPages < MAX_API_PAGES) {
         const searchParams: any = {
           part: ['snippet'],
           q: keyword,
@@ -71,6 +74,7 @@ export class YouTubeClient {
         }
 
         const searchResponse = await this.youtube.search.list(searchParams);
+        totalApiPages++;
 
         const videos = searchResponse.data.items || [];
         if (videos.length === 0) break;
@@ -86,17 +90,19 @@ export class YouTubeClient {
           const batchResults = await this.getVideoDetailsBatch(videoIds, viralThreshold);
           for (const viralVideo of batchResults) {
             viralVideos.push(viralVideo);
-            console.log(`✅ 発見: ${viralVideo.title.substring(0, 50)}... (${viralVideo.viewsToSubscribersRatio.toFixed(1)}倍)`);
+            console.log(`✅ [${viralVideos.length}/${maxResults}] ${viralVideo.title.substring(0, 50)}... (${viralVideo.viewsToSubscribersRatio.toFixed(1)}倍)`);
+            if (viralVideos.length >= maxResults) break;
           }
         }
 
-        processedCount += videos.length;
         pageToken = searchResponse.data.nextPageToken || undefined;
         if (!pageToken) break;
 
         await this.sleep(100);
       }
     }
+
+    console.log(`\n✨ 合計 ${viralVideos.length}件のバイラル動画を発見 (${seenVideoIds.size}件調査)`);
 
     // バイラル倍率の高い順にソート
     viralVideos.sort((a, b) => b.viewsToSubscribersRatio - a.viewsToSubscribersRatio);
