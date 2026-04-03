@@ -287,8 +287,9 @@ app.get('/api/search', async (req: Request, res: Response) => {
 
   } catch (error: any) {
     console.error('検索エラー:', error);
-    const message = error?.message || '';
-    if (message.includes('quota')) {
+    const message = String(error?.message || error || '');
+    const errorStr = JSON.stringify(error?.errors || error?.response?.data || '');
+    if (message.includes('quota') || errorStr.includes('quota') || message.includes('exceeded') || (error?.code === 403)) {
       res.status(429).send(`<!DOCTYPE html><html lang="ja"><head><meta charset="UTF-8"><title>APIクォータ超過</title>
         <style>body{font-family:sans-serif;background:#f8d7da;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;}
         .card{background:white;padding:40px;border-radius:15px;max-width:500px;text-align:center;box-shadow:0 5px 20px rgba(0,0,0,0.1);}

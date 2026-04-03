@@ -78,9 +78,13 @@ export class YouTubeClient {
           searchResponse = await this.youtube.search.list(searchParams);
         } catch (error: any) {
           console.error(`⚠️ API呼び出しエラー (${totalApiPages}ページ目):`, error?.message);
-          // クォータエラー等でも、ここまでの結果を返す
-          viralVideos.sort((a, b) => b.viewsToSubscribersRatio - a.viewsToSubscribersRatio);
-          return viralVideos;
+          if (viralVideos.length > 0) {
+            // 途中結果がある場合はそれを返す
+            viralVideos.sort((a, b) => b.viewsToSubscribersRatio - a.viewsToSubscribersRatio);
+            return viralVideos;
+          }
+          // 結果が0件の場合はエラーを上位に伝える
+          throw error;
         }
         totalApiPages++;
 
@@ -104,8 +108,11 @@ export class YouTubeClient {
             }
           } catch (error: any) {
             console.error(`⚠️ 詳細取得エラー:`, error?.message);
-            viralVideos.sort((a, b) => b.viewsToSubscribersRatio - a.viewsToSubscribersRatio);
-            return viralVideos;
+            if (viralVideos.length > 0) {
+              viralVideos.sort((a, b) => b.viewsToSubscribersRatio - a.viewsToSubscribersRatio);
+              return viralVideos;
+            }
+            throw error;
           }
         }
 
