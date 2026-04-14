@@ -36,96 +36,57 @@ export class YouTubeClient {
     } = options;
 
     const viralVideos: ViralVideo[] = [];
-    const seenVideoIds = new Set<string>();
-    const MAX_API_PAGES = 8; // APIクォータ保護: 最大8ページ(=800ユニット)
 
     console.log(`\n🔍 検索中: "${keyword}"`);
     if (publishedAfter || publishedBefore) {
       console.log(`📅 期間: ${publishedAfter || '開始'} 〜 ${publishedBefore || '現在'}`);
     }
     console.log(`🎯 条件: 登録者数の${viralThreshold}倍以上の再生数`);
-    console.log(`📊 目標: バイラル動画 ${maxResults}件\n`);
+    console.log(`📊 最大: ${maxResults}件\n`);
 
-    // relevance優先で検索（viewCount等は無関係な動画が混入するため使わない）
-    const searchOrders = ['relevance', 'date'];
-    let totalApiPages = 0;
+    const searchParams: any = {
+      part: ['snippet'],
+      q: keyword,
+      type: ['video'],
+      maxResults: Math.min(maxResults, 50),
+      order: 'relevance',
+      regionCode: 'JP',
+      relevanceLanguage: 'ja',
+      publishedAfter,
+      publishedBefore,
+    };
 
-    for (const order of searchOrders) {
-      if (viralVideos.length >= maxResults) break;
+    if (videoDuration !== 'any') {
+      searchParams.videoDuration = videoDuration;
+    }
 
-      let pageToken: string | undefined;
+    let searchResponse;
+    try {
+      searchResponse = await this.youtube.search.list(searchParams);
+    } catch (error: any) {
+      console.error(`⚠️ API呼び出しエラー:`, error?.message);
+      throw error;
+    }
 
-      console.log(`📋 ソート順: ${order} で検索中... (現在 ${viralVideos.length}/${maxResults}件)`);
+    const videos = searchResponse.data.items || [];
+    const videoIds = videos
+      .map((v: any) => v.id?.videoId)
+      .filter((id: any): id is string => !!id);
 
-      while (viralVideos.length < maxResults && totalApiPages < MAX_API_PAGES) {
-        const searchParams: any = {
-          part: ['snippet'],
-          q: keyword,
-          type: ['video'],
-          maxResults: 50,
-          order,
-          publishedAfter,
-          publishedBefore,
-          pageToken,
-          regionCode: 'JP',
-          relevanceLanguage: 'ja',
-        };
-
-        if (videoDuration !== 'any') {
-          searchParams.videoDuration = videoDuration;
+    if (videoIds.length > 0) {
+      try {
+        const batchResults = await this.getVideoDetailsBatch(videoIds, viralThreshold);
+        for (const viralVideo of batchResults) {
+          viralVideos.push(viralVideo);
+          console.log(`✅ [${viralVideos.length}] ${viralVideo.title.substring(0, 50)}... (拡散率: ${viralVideo.viewsToSubscribersRatio.toFixed(1)}倍)`);
         }
-
-        let searchResponse;
-        try {
-          searchResponse = await this.youtube.search.list(searchParams);
-        } catch (error: any) {
-          console.error(`⚠️ API呼び出しエラー (${totalApiPages}ページ目):`, error?.message);
-          if (viralVideos.length > 0) {
-            // 途中結果がある場合はそれを返す
-            viralVideos.sort((a, b) => b.viewsToSubscribersRatio - a.viewsToSubscribersRatio);
-            return viralVideos;
-          }
-          // 結果が0件の場合はエラーを上位に伝える
-          throw error;
-        }
-        totalApiPages++;
-
-        const videos = searchResponse.data.items || [];
-        if (videos.length === 0) break;
-
-        // 重複排除して動画IDを一括収集
-        const videoIds = videos
-          .map(v => v.id?.videoId)
-          .filter((id): id is string => !!id && !seenVideoIds.has(id));
-
-        for (const id of videoIds) seenVideoIds.add(id);
-
-        if (videoIds.length > 0) {
-          try {
-            const batchResults = await this.getVideoDetailsBatch(videoIds, viralThreshold);
-            for (const viralVideo of batchResults) {
-              viralVideos.push(viralVideo);
-              console.log(`✅ [${viralVideos.length}/${maxResults}] ${viralVideo.title.substring(0, 50)}... (${viralVideo.viewsToSubscribersRatio.toFixed(1)}倍)`);
-              if (viralVideos.length >= maxResults) break;
-            }
-          } catch (error: any) {
-            console.error(`⚠️ 詳細取得エラー:`, error?.message);
-            if (viralVideos.length > 0) {
-              viralVideos.sort((a, b) => b.viewsToSubscribersRatio - a.viewsToSubscribersRatio);
-              return viralVideos;
-            }
-            throw error;
-          }
-        }
-
-        pageToken = searchResponse.data.nextPageToken || undefined;
-        if (!pageToken) break;
-
-        await this.sleep(100);
+      } catch (error: any) {
+        console.error(`⚠️ 詳細取得エラー:`, error?.message);
+        throw error;
       }
     }
 
-    console.log(`\n✨ 合計 ${viralVideos.length}件のバイラル動画を発見 (${seenVideoIds.size}件調査)`);
+    console.log(`\n✨ 合計 ${viralVideos.length}件のバイラル動画を発見 (${videoIds.length}件調査)`);
 
     // バイラル倍率の高い順にソート
     viralVideos.sort((a, b) => b.viewsToSubscribersRatio - a.viewsToSubscribersRatio);
