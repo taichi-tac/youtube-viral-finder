@@ -88,8 +88,8 @@ export class YouTubeClient {
 
     console.log(`\n✨ 合計 ${viralVideos.length}件のバイラル動画を発見 (${videoIds.length}件調査)`);
 
-    // バイラル倍率の高い順にソート
-    viralVideos.sort((a, b) => b.viewsToSubscribersRatio - a.viewsToSubscribersRatio);
+    // 急上昇率（1日あたり再生数）の高い順にソート
+    viralVideos.sort((a, b) => b.viewsPerDay - a.viewsPerDay);
 
     return viralVideos;
   }
@@ -146,7 +146,6 @@ export class YouTubeClient {
         ? viewCount / subscriberCount
         : 0;
 
-      if (viewsToSubscribersRatio < viralThreshold) continue;
 
       const likeRate = viewCount > 0 ? likeCount / viewCount : 0;
       const commentRate = viewCount > 0 ? commentCount / viewCount : 0;
