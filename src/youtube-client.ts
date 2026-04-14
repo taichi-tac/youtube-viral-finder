@@ -67,6 +67,8 @@ export class YouTubeClient {
           publishedAfter,
           publishedBefore,
           pageToken,
+          regionCode: 'JP',
+          relevanceLanguage: 'ja',
         };
 
         if (videoDuration !== 'any') {
