@@ -193,7 +193,7 @@ app.get('/', (req: Request, res: Response) => {
 
           <div class="form-group">
             <label for="maxResults">最大結果数</label>
-            <input type="number" id="maxResults" name="maxResults" value="200" min="1" max="500">
+            <input type="number" id="maxResults" name="maxResults" value="15" min="1" max="50">
             <div class="hint">バイラル動画がこの件数見つかるまで検索</div>
           </div>
         </div>
@@ -251,7 +251,7 @@ app.get('/api/search', async (req: Request, res: Response) => {
       after,
       before,
       threshold = '3',
-      maxResults = '50',
+      maxResults = '15',
       videoDuration = 'any'
     } = req.query;
 
