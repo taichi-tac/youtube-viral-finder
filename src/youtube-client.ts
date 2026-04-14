@@ -46,8 +46,8 @@ export class YouTubeClient {
     console.log(`🎯 条件: 登録者数の${viralThreshold}倍以上の再生数`);
     console.log(`📊 目標: バイラル動画 ${maxResults}件\n`);
 
-    // 複数のソート順で検索して多様な動画を収集
-    const searchOrders = ['viewCount', 'relevance', 'date', 'rating'];
+    // relevance優先で検索（viewCount等は無関係な動画が混入するため使わない）
+    const searchOrders = ['relevance', 'date'];
     let totalApiPages = 0;
 
     for (const order of searchOrders) {
