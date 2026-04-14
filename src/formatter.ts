@@ -100,17 +100,21 @@ export class ResultFormatter {
       'チャンネル名',
       'チャンネルURL',
       '再生数',
+      '拡散率',
       '登録者数',
-      '登録者倍率',
       '総動画数',
       '公開日',
       'チャンネル開設日',
+      'エンゲージメント率',
+      '急上昇率(1日再生数)',
       '動画の長さ',
       '高評価数',
       '高評価率',
       'コメント数',
       'コメント率',
-      'エンゲージメント率',
+      '登録率',
+      '概要欄',
+      'ハッシュタグ',
     ];
 
     const rows = videos.map(v => [
@@ -120,17 +124,21 @@ export class ResultFormatter {
       this.escapeCSV(v.channelName),
       v.channelUrl,
       v.viewCount,
-      v.subscriberCount,
       v.viewsToSubscribersRatio.toFixed(2),
+      v.subscriberCount,
       v.totalVideoCount,
       v.publishedAt,
       v.channelCreatedAt,
+      (v.engagementRate * 100).toFixed(4),
+      Math.round(v.viewsPerDay),
       v.duration,
       v.likeCount,
       (v.likeRate * 100).toFixed(2),
       v.commentCount,
       (v.commentRate * 100).toFixed(4),
-      (v.engagementRate * 100).toFixed(4),
+      (v.subscriberRate * 100).toFixed(4),
+      this.escapeCSV(v.description),
+      this.escapeCSV(v.hashtags.join(' ')),
     ]);
 
     return [headers.join(','), ...rows.map(r => r.join(','))].join('\n');
@@ -392,8 +400,16 @@ export class ResultFormatter {
                 <div class="value">${this.formatNumber(video.viewCount)}</div>
               </div>
               <div class="metric">
-                <div class="label">登録者数</div>
-                <div class="value">${this.formatNumber(video.subscriberCount)}</div>
+                <div class="label">拡散率</div>
+                <div class="value">${video.viewsToSubscribersRatio.toFixed(1)}x</div>
+              </div>
+              <div class="metric">
+                <div class="label">急上昇率(1日)</div>
+                <div class="value">${this.formatNumber(Math.round(video.viewsPerDay))}</div>
+              </div>
+              <div class="metric">
+                <div class="label">エンゲージメント率</div>
+                <div class="value">${this.formatPercentage(video.engagementRate)}</div>
               </div>
               <div class="metric">
                 <div class="label">高評価率</div>
@@ -402,6 +418,14 @@ export class ResultFormatter {
               <div class="metric">
                 <div class="label">コメント率</div>
                 <div class="value">${this.formatPercentage(video.commentRate)}</div>
+              </div>
+              <div class="metric">
+                <div class="label">登録率</div>
+                <div class="value">${this.formatPercentage(video.subscriberRate)}</div>
+              </div>
+              <div class="metric">
+                <div class="label">登録者数</div>
+                <div class="value">${this.formatNumber(video.subscriberCount)}</div>
               </div>
             </div>
 
@@ -424,6 +448,14 @@ export class ResultFormatter {
                 公開日
               </div>
             </div>
+            ${video.hashtags.length > 0 ? `
+            <div style="margin-top:10px;padding-top:10px;border-top:1px solid #eee;font-size:12px;color:#667eea;">
+              ${video.hashtags.slice(0, 5).map(t => this.escapeHTML(t)).join(' ')}
+            </div>` : ''}
+            ${video.description ? `
+            <div style="margin-top:8px;font-size:11px;color:#888;overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;">
+              ${this.escapeHTML(video.description.substring(0, 200))}
+            </div>` : ''}
           </div>
         </div>
       `).join('')}

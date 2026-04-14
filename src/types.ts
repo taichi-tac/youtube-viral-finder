@@ -21,11 +21,18 @@ export interface ViralVideo {
   channelCreatedAt: string;
   totalVideoCount: number;
 
+  // 追加フィールド
+  description: string; // 概要欄
+  hashtags: string[]; // ハッシュタグ
+
   // 分析指標
-  viewsToSubscribersRatio: number; // 登録者数の何倍の再生数か
+  viewsToSubscribersRatio: number; // 拡散率: 登録者数の何倍の再生数か
+  viewsPerDay: number; // 急上昇率: 1日あたり再生数 (再生数 / 公開日からの日数)
   likeRate: number; // 高評価率 (高評価数 / 再生数)
   commentRate: number; // コメント率 (コメント数 / 再生数)
   engagementRate: number; // エンゲージメント率 ((高評価+コメント) / 再生数)
+  channelTotalViewCount: number; // チャンネル総視聴回数
+  subscriberRate: number; // 登録率: 登録者数 / チャンネル総視聴回数
 }
 
 /**

@@ -140,7 +140,7 @@ export class YouTubeClient {
   ): Promise<ViralVideo[]> {
     // 動画情報を一括取得（最大50件）
     const videoResponse = await this.youtube.videos.list({
-      part: ['snippet', 'statistics', 'contentDetails'],
+      part: ['snippet', 'statistics', 'contentDetails', 'localizations'],
       id: videoIds,
     });
 
@@ -156,7 +156,7 @@ export class YouTubeClient {
 
     // チャンネル情報を一括取得（最大50件）
     const channelResponse = await this.youtube.channels.list({
-      part: ['snippet', 'statistics'],
+      part: ['snippet', 'statistics', 'contentDetails'],
       id: channelIds,
     });
 
@@ -177,6 +177,7 @@ export class YouTubeClient {
       const commentCount = parseInt(video.statistics.commentCount || '0');
       const subscriberCount = parseInt(channel.statistics.subscriberCount || '0');
       const totalVideoCount = parseInt(channel.statistics.videoCount || '0');
+      const channelTotalViewCount = parseInt(channel.statistics.viewCount || '0');
 
       const viewsToSubscribersRatio = subscriberCount > 0
         ? viewCount / subscriberCount
@@ -190,12 +191,30 @@ export class YouTubeClient {
         ? (likeCount + commentCount) / viewCount
         : 0;
 
+      // 急上昇率: 1日あたり再生数
+      const publishedAt = video.snippet.publishedAt || '';
+      const daysSincePublished = publishedAt
+        ? Math.max(1, Math.floor((Date.now() - new Date(publishedAt).getTime()) / (1000 * 60 * 60 * 24)))
+        : 1;
+      const viewsPerDay = viewCount / daysSincePublished;
+
+      // 登録率: 登録者数 / チャンネル総視聴回数
+      const subscriberRate = channelTotalViewCount > 0
+        ? subscriberCount / channelTotalViewCount
+        : 0;
+
+      // 概要欄とハッシュタグ
+      const description = video.snippet.description || '';
+      const hashtagMatches = description.match(/#[\w\u3000-\u9fff\uff00-\uffef]+/g) || [];
+      const tagsFromSnippet = (video.snippet.tags || []).filter((t: string) => t.startsWith('#'));
+      const hashtags = [...new Set([...hashtagMatches, ...tagsFromSnippet])];
+
       results.push({
         videoUrl: `https://www.youtube.com/watch?v=${video.id}`,
         videoId: video.id as string,
         title: video.snippet.title || '',
         thumbnailUrl: video.snippet.thumbnails?.high?.url || '',
-        publishedAt: video.snippet.publishedAt || '',
+        publishedAt,
         duration: this.parseDuration(video.contentDetails?.duration || ''),
         viewCount,
         likeCount,
@@ -206,10 +225,15 @@ export class YouTubeClient {
         subscriberCount,
         channelCreatedAt: channel.snippet?.publishedAt || '',
         totalVideoCount,
+        description,
+        hashtags,
         viewsToSubscribersRatio,
+        viewsPerDay,
         likeRate,
         commentRate,
         engagementRate,
+        channelTotalViewCount,
+        subscriberRate,
       });
     }
 
