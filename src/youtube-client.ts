@@ -76,11 +76,11 @@ export class YouTubeClient {
     if (videoIds.length > 0) {
       try {
         const batchResults = await this.getVideoDetailsBatch(videoIds, viralThreshold);
-        // キーワードの各単語がタイトル or 説明文に含まれているかチェック
+        // キーワードの各単語がタイトルに含まれているかチェック（説明文は除外）
         const keywordTokens = keyword.split(/[\s　]+/).filter(t => t.length >= 2);
         for (const viralVideo of batchResults) {
-          const haystack = (viralVideo.title + ' ' + viralVideo.description).toLowerCase();
-          const matched = keywordTokens.every(token => haystack.includes(token.toLowerCase()));
+          const titleLower = viralVideo.title.toLowerCase();
+          const matched = keywordTokens.every(token => titleLower.includes(token.toLowerCase()));
           if (!matched) {
             console.log(`⏭ スキップ（キーワード不一致）: ${viralVideo.title.substring(0, 50)}`);
             continue;
