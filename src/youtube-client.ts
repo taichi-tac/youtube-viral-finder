@@ -76,7 +76,15 @@ export class YouTubeClient {
     if (videoIds.length > 0) {
       try {
         const batchResults = await this.getVideoDetailsBatch(videoIds, viralThreshold);
+        // キーワードの各単語がタイトル or 説明文に含まれているかチェック
+        const keywordTokens = keyword.split(/[\s　]+/).filter(t => t.length >= 2);
         for (const viralVideo of batchResults) {
+          const haystack = (viralVideo.title + ' ' + viralVideo.description).toLowerCase();
+          const matched = keywordTokens.every(token => haystack.includes(token.toLowerCase()));
+          if (!matched) {
+            console.log(`⏭ スキップ（キーワード不一致）: ${viralVideo.title.substring(0, 50)}`);
+            continue;
+          }
           viralVideos.push(viralVideo);
           console.log(`✅ [${viralVideos.length}] ${viralVideo.title.substring(0, 50)}... (拡散率: ${viralVideo.viewsToSubscribersRatio.toFixed(1)}倍)`);
         }
