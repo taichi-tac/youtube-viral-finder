@@ -472,6 +472,108 @@ function generateResultHTML(
       display: block;
       margin-top: 2px;
     }
+    .select-checkbox {
+      position: absolute;
+      top: 10px;
+      left: 10px;
+      width: 24px;
+      height: 24px;
+      cursor: pointer;
+      z-index: 10;
+      accent-color: #667eea;
+    }
+    .video-card.selected {
+      outline: 3px solid #667eea;
+    }
+    .analyze-bar {
+      position: fixed;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      background: white;
+      border-top: 2px solid #667eea;
+      padding: 15px 30px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      box-shadow: 0 -5px 20px rgba(0,0,0,0.1);
+      z-index: 100;
+      transform: translateY(100%);
+      transition: transform 0.3s ease;
+    }
+    .analyze-bar.visible { transform: translateY(0); }
+    .analyze-bar .count { font-weight: bold; color: #667eea; font-size: 16px; }
+    .analyze-btn {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      padding: 12px 30px;
+      border-radius: 25px;
+      font-size: 16px;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .analyze-btn:hover { opacity: 0.9; }
+    .modal-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 200;
+      overflow-y: auto;
+      padding: 20px;
+    }
+    .modal-overlay.active { display: flex; align-items: flex-start; justify-content: center; }
+    .modal {
+      background: white;
+      border-radius: 20px;
+      padding: 30px;
+      max-width: 700px;
+      width: 100%;
+      margin: auto;
+    }
+    .modal h2 { color: #667eea; margin-bottom: 20px; }
+    .modal-section { margin-bottom: 20px; }
+    .modal-section h3 { font-size: 14px; color: #999; margin-bottom: 8px; text-transform: uppercase; }
+    .tags { display: flex; flex-wrap: wrap; gap: 8px; }
+    .tag {
+      background: #f0f0ff;
+      color: #667eea;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 13px;
+      font-weight: bold;
+    }
+    .plan-item {
+      background: #f8f9fa;
+      border-left: 4px solid #667eea;
+      padding: 12px 16px;
+      border-radius: 0 8px 8px 0;
+      margin-bottom: 10px;
+      font-size: 14px;
+      line-height: 1.5;
+    }
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+    }
+    .stat-item {
+      background: #f8f9fa;
+      padding: 10px;
+      border-radius: 8px;
+      font-size: 13px;
+    }
+    .stat-item .s-label { color: #999; font-size: 11px; }
+    .stat-item .s-value { font-weight: bold; color: #333; font-size: 15px; }
+    .modal-close {
+      float: right;
+      background: none;
+      border: none;
+      font-size: 24px;
+      cursor: pointer;
+      color: #999;
+    }
   </style>
 </head>
 <body>
@@ -501,9 +603,20 @@ function generateResultHTML(
     </div>
 
     <div class="video-grid">
-      ${videos.map(video => `
-        <div class="video-card">
+      ${videos.map((video, i) => `
+        <div class="video-card" id="card-${i}" data-video='${JSON.stringify({
+          title: video.title,
+          viewCount: video.viewCount,
+          viewsPerDay: video.viewsPerDay,
+          likeRate: video.likeRate,
+          engagementRate: video.engagementRate,
+          subscriberCount: video.subscriberCount,
+          duration: video.duration,
+          publishedAt: video.publishedAt,
+          hashtags: video.hashtags || [],
+        }).replace(/'/g, '&#39;')}'>
           <div class="thumbnail-container">
+            <input type="checkbox" class="select-checkbox" onchange="toggleSelect(${i}, this)">
             <img src="${video.thumbnailUrl}" alt="${escapeHTML(video.title)}">
             <div class="viral-badge">${video.viewsToSubscribersRatio.toFixed(1)}x バイラル</div>
           </div>
@@ -579,6 +692,90 @@ function generateResultHTML(
     </div>
   </div>
 
+  <!-- 分析バー -->
+  <div class="analyze-bar" id="analyzeBar">
+    <span class="count" id="selectedCount">0件選択中</span>
+    <button class="analyze-btn" onclick="runAnalysis()">🔍 選択した動画を分析・企画化</button>
+  </div>
+
+  <!-- 分析結果モーダル -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal">
+      <button class="modal-close" onclick="closeModal()">✕</button>
+      <h2>📊 分析結果 & 企画案</h2>
+      <div id="modalContent"></div>
+    </div>
+  </div>
+
+  <script>
+    const selectedIds = new Set();
+
+    function toggleSelect(i, cb) {
+      const card = document.getElementById('card-' + i);
+      if (cb.checked) {
+        selectedIds.add(i);
+        card.classList.add('selected');
+      } else {
+        selectedIds.delete(i);
+        card.classList.remove('selected');
+      }
+      const bar = document.getElementById('analyzeBar');
+      const cnt = document.getElementById('selectedCount');
+      cnt.textContent = selectedIds.size + '件選択中';
+      if (selectedIds.size >= 2) bar.classList.add('visible');
+      else bar.classList.remove('visible');
+    }
+
+    async function runAnalysis() {
+      const videos = [...selectedIds].map(i => {
+        const card = document.getElementById('card-' + i);
+        return JSON.parse(card.dataset.video);
+      });
+
+      document.getElementById('modalContent').innerHTML = '<p style="text-align:center;padding:40px;">分析中...</p>';
+      document.getElementById('modalOverlay').classList.add('active');
+
+      const res = await fetch('/api/analyze', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ videos }),
+      });
+      const data = await res.json();
+
+      const s = data.summary;
+      document.getElementById('modalContent').innerHTML = \`
+        <div class="modal-section">
+          <h3>📈 数値傾向（選択\${s.count}本の平均）</h3>
+          <div class="stats-grid">
+            <div class="stat-item"><div class="s-label">平均再生数</div><div class="s-value">\${s.avgViews.toLocaleString()}回</div></div>
+            <div class="stat-item"><div class="s-label">中央急上昇率(1日)</div><div class="s-value">\${s.medianViewsPerDay.toLocaleString()}回/日</div></div>
+            <div class="stat-item"><div class="s-label">平均高評価率</div><div class="s-value">\${s.avgLikeRate}%</div></div>
+            <div class="stat-item"><div class="s-label">平均エンゲージメント</div><div class="s-value">\${s.avgEngagement}%</div></div>
+            <div class="stat-item"><div class="s-label">動画の長さ傾向</div><div class="s-value">\${s.durationTrend}</div></div>
+            <div class="stat-item"><div class="s-label">チャンネル規模</div><div class="s-value">\${s.channelSize}</div></div>
+          </div>
+        </div>
+        \${data.commonWords.length > 0 ? \`
+        <div class="modal-section">
+          <h3>🔤 タイトル共通キーワード</h3>
+          <div class="tags">\${data.commonWords.map(w => \`<span class="tag">\${w}</span>\`).join('')}</div>
+        </div>\` : ''}
+        \${data.commonHashtags.length > 0 ? \`
+        <div class="modal-section">
+          <h3>#️⃣ 共通ハッシュタグ</h3>
+          <div class="tags">\${data.commonHashtags.map(t => \`<span class="tag">\${t}</span>\`).join('')}</div>
+        </div>\` : ''}
+        <div class="modal-section">
+          <h3>💡 企画案（5パターン）</h3>
+          \${data.plans.map(p => \`<div class="plan-item">\${p}</div>\`).join('')}
+        </div>
+      \`;
+    }
+
+    function closeModal() {
+      document.getElementById('modalOverlay').classList.remove('active');
+    }
+  </script>
 </body>
 </html>`;
 }
@@ -604,6 +801,115 @@ function formatDate(dateStr: string): string {
   const date = new Date(dateStr);
   return date.toLocaleDateString('ja-JP');
 }
+
+// 動画分析API（ルールベース）
+app.post('/api/analyze', (req: Request, res: Response) => {
+  const videos: any[] = req.body.videos;
+  if (!videos || videos.length < 2) {
+    return res.status(400).json({ error: '2本以上の動画を選択してください' });
+  }
+
+  // ① 数値指標の平均・中央値
+  const avg = (arr: number[]) => arr.reduce((a, b) => a + b, 0) / arr.length;
+  const median = (arr: number[]) => {
+    const s = [...arr].sort((a, b) => a - b);
+    const m = Math.floor(s.length / 2);
+    return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
+  };
+
+  const viewCounts = videos.map(v => v.viewCount);
+  const viewsPerDays = videos.map(v => v.viewsPerDay);
+  const durations = videos.map(v => {
+    const parts = v.duration.split(':').map(Number);
+    return parts.length === 3 ? parts[0] * 3600 + parts[1] * 60 + parts[2] : parts[0] * 60 + (parts[1] || 0);
+  });
+  const likeRates = videos.map(v => v.likeRate);
+  const engagementRates = videos.map(v => v.engagementRate);
+  const subscriberCounts = videos.map(v => v.subscriberCount);
+
+  // ② 動画の長さ傾向
+  const avgDurationSec = avg(durations);
+  const durationLabel = avgDurationSec < 240 ? 'ショート（4分未満）'
+    : avgDurationSec < 600 ? '短め（4〜10分）'
+    : avgDurationSec < 1200 ? '中尺（10〜20分）'
+    : '長尺（20分以上）';
+
+  // ③ チャンネル規模傾向
+  const avgSubs = avg(subscriberCounts);
+  const channelSizeLabel = avgSubs < 10000 ? '小規模（1万未満）'
+    : avgSubs < 100000 ? '中規模（1〜10万）'
+    : avgSubs < 1000000 ? '大規模（10〜100万）'
+    : '超大規模（100万以上）';
+
+  // ④ タイトルのキーワード共通項抽出
+  const titleWords: Record<string, number> = {};
+  for (const v of videos) {
+    const words = v.title
+      .replace(/[【】「」『』()（）\[\]]/g, ' ')
+      .split(/[\s　・、。!！?？]+/)
+      .filter((w: string) => w.length >= 2);
+    for (const w of words) {
+      titleWords[w] = (titleWords[w] || 0) + 1;
+    }
+  }
+  const commonWords = Object.entries(titleWords)
+    .filter(([, count]) => count >= Math.max(2, Math.ceil(videos.length * 0.4)))
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 8)
+    .map(([w]) => w);
+
+  // ⑤ ハッシュタグ共通項
+  const hashtagCounts: Record<string, number> = {};
+  for (const v of videos) {
+    for (const tag of (v.hashtags || [])) {
+      hashtagCounts[tag] = (hashtagCounts[tag] || 0) + 1;
+    }
+  }
+  const commonHashtags = Object.entries(hashtagCounts)
+    .filter(([, c]) => c >= 2)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([t]) => t);
+
+  // ⑥ 投稿時期傾向
+  const months = videos.map(v => new Date(v.publishedAt).getMonth() + 1);
+  const recentMonths = months.filter(m => {
+    const now = new Date().getMonth() + 1;
+    return Math.abs(m - now) <= 2;
+  });
+  const timingLabel = recentMonths.length >= videos.length * 0.6 ? '最近の動画が多い（トレンド性が高い）' : '時期は分散している';
+
+  // ⑦ 企画案生成（テンプレートベース）
+  const plans: string[] = [];
+  const kw = commonWords.slice(0, 3).join('・') || '検索キーワード';
+
+  // パターン1: 数字訴求
+  plans.push(`【数字訴求】「${kw}で${Math.round(avg(viewCounts) / 1000)}倍の結果を出す○○の方法」`);
+  // パターン2: 初心者向け
+  plans.push(`【入門系】「${kw}完全ガイド｜初心者でも${avgDurationSec < 600 ? '5分で' : ''}わかる基礎から実践まで」`);
+  // パターン3: 比較・ランキング
+  plans.push(`【比較系】「${kw}を徹底比較！プロが選ぶTOP${videos.length}選【2026年版】」`);
+  // パターン4: 失敗談
+  plans.push(`【失敗談】「${kw}で失敗した○○の話〜やってはいけないこと全部教えます」`);
+  // パターン5: 結果系
+  plans.push(`【結果系】「${kw}を1ヶ月続けた結果がヤバすぎた」`);
+
+  res.json({
+    summary: {
+      count: videos.length,
+      avgViews: Math.round(avg(viewCounts)),
+      medianViewsPerDay: Math.round(median(viewsPerDays)),
+      avgLikeRate: (avg(likeRates) * 100).toFixed(2),
+      avgEngagement: (avg(engagementRates) * 100).toFixed(2),
+      durationTrend: durationLabel,
+      channelSize: channelSizeLabel,
+      timing: timingLabel,
+    },
+    commonWords,
+    commonHashtags,
+    plans,
+  });
+});
 
 // サーバー起動
 app.listen(PORT, () => {
