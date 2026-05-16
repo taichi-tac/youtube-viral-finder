@@ -138,6 +138,16 @@ export class YouTubeClient {
       const channel = channelMap.get(video.snippet.channelId!);
       if (!channel || !channel.statistics) continue;
 
+      // 日本語動画のみ（defaultAudioLanguage または defaultLanguage が ja のもの）
+      const audioLang = video.snippet.defaultAudioLanguage || '';
+      const defLang = video.snippet.defaultLanguage || '';
+      const isJapanese = audioLang.startsWith('ja') || defLang.startsWith('ja');
+      // 言語情報がない場合はチャンネル名・タイトルで簡易判定（日本語文字が含まれるか）
+      const hasJapaneseChars = /[\u3000-\u9fff\uff00-\uffef]/.test(
+        (video.snippet.title || '') + (channel.snippet?.title || '')
+      );
+      if (!isJapanese && !hasJapaneseChars) continue;
+
       const viewCount = parseInt(video.statistics.viewCount || '0');
       const likeCount = parseInt(video.statistics.likeCount || '0');
       const commentCount = parseInt(video.statistics.commentCount || '0');
